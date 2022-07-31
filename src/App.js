@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import Message from './Message'
 
 import { initializeApp } from "firebase/app";
+import { getDatabase, set, ref, onValue } from "firebase/database";
 import { getAnalytics } from "firebase/analytics";
 
 function App() {
@@ -18,27 +19,67 @@ function App() {
     measurementId: "G-2L608MSNPJ",
   };
 
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-  
-  const [author, setAuthor] = useState("")
-  const [message, setMessage] = useState({user:"Ryan", message: "Hello"})
+  const app = initializeApp(firebaseConfig)
+  const database = getDatabase();
 
-  const handleSubmit = (e) => {
-    setMessage({ ...message, user: author, message: e.target.value})
+  const [author, setAuthor] = useState("anonymous")
+  const [messagesArr, setMessagesArr] = useState([{ user: "Ryan", message: "Hello" }, { user: "Lincoln", message: "Bruh" }]);
+
+  const messagesRef = ref(database, "messages/container");
+  useEffect(() => {
+    onValue(messagesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        setMessagesArr([]);
+      } else {
+        setMessagesArr(data);
+      }
+    });
+  }, []);
+
+  const addMessageToDatabase = (messageObject) => {
+    set(ref(database, 'messages/container'), messagesArr.concat(messageObject));
   }
-  
+
+  const clearDatabase = () => {
+    set(ref(database, 'messages/container'), []);
+  }
+
+  const [currentMessage, setCurrentMessage] = useState()
+  // const handleMessage = (e) => {
+  //   setMessagesArr([...messagesArr, {user: author, message: e.target.value}])
+  // }
+
+
+
+  const showMessage = messagesArr.map(elem => <Message user={elem.user} message={elem.message} />)
+
+
+
 
 
   return (
-    <div>
-      set name
-      <input type='text' onChange={(e) => {setAuthor(e.target.value)}} />
+    <div className="App-container">
+      <div className="top-bar">
+        <div>
+          set name
+          <input type='text' onChange={(e) => { setAuthor(e.target.value) }} />
+        </div>
+        <button onClick={() => { clearDatabase() }}> clear all messages for everyone </button>
+      </div>
 
-      message
-      <input type='text' onChange={handleSubmit} />
+      <div className='message-body'>
+        <div className="messages-container">{showMessage}</div>
+      </div>
 
-      
+      <div className="bottom-bar">
+        <div className='message-input'>
+          message
+          <input type='text' onChange={(e) => { setCurrentMessage(e.target.value) }} />
+
+          <button onClick={() => { addMessageToDatabase({ user: author, message: currentMessage }) }}> submit </button>
+        </div>
+      </div>
 
     </div>
   );
